@@ -16,7 +16,9 @@ from shapely.geometry import shape, Point
 DRY = "--dry-run" in sys.argv
 MAX_RENT, MIN_RENT, MAX_AGE_DAYS = 2800, 900, 30
 HERE = os.path.dirname(os.path.abspath(__file__))
-ENV = os.environ.get
+def ENV(k, d=None):
+    v = os.environ.get(k)
+    return v.strip() if isinstance(v, str) and v.strip() else d  # ignore stray spaces/newlines from pasted secrets
 SB_URL = (ENV("SUPABASE_URL") or "").rstrip("/")
 SB_KEY = ENV("SUPABASE_SECRET_KEY") or ""
 SITE = ENV("SITE_URL") or ""
@@ -210,7 +212,7 @@ def fmt_beds(b):
     return "studio" if float(b) == 0 else f"{int(b) if float(b).is_integer() else b} BR"
 
 def send_email(to, subject, lines, picks):
-    user, pw = ENV("SMTP_USER"), ENV("SMTP_PASS")
+    user, pw = ENV("SMTP_USER"), (ENV("SMTP_PASS") or "").replace(" ", "")
     if not (user and pw and to): print("email: skipped (not set up)"); return
     msg = EmailMessage(); msg["Subject"] = subject; msg["From"] = f"NYC Move <{user}>"; msg["To"] = ", ".join(to)
     text = "\n".join(lines + [""] + [f"${p['price']:,} {fmt_beds(p.get('beds'))} in {p.get('hood','')}: {p.get('url','')}" for p in picks] + ["", SITE])
@@ -233,10 +235,13 @@ def main():
     now = int(time.time() * 1000)
     problems = []
     raw = {}
-    for name, actor, inp, fields, charge, tmo in (
-        ("streeteasy", "memo23/apify-streeteasy-cheerio", SE_INPUT, SE_FIELDS, 1, 1200),
-        ("craigslist", "lentic_clockss/craigslist-housing-scraper", CL_INPUT, CL_FIELDS, 0.5, 900)):
-        try: raw[name] = apify(actor, inp, fields, charge, tmo)
+    jobs = (("streeteasy", "memo23/apify-streeteasy-cheerio", SE_INPUT, SE_FIELDS, 1, 1200),
+            ("craigslist", "lentic_clockss/craigslist-housing-scraper", CL_INPUT, CL_FIELDS, 0.5, 900))
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(2) as ex:  # both scrapers run at the same time
+        futs = {name: ex.submit(apify, actor, inp, fields, charge, tmo) for name, actor, inp, fields, charge, tmo in jobs}
+    for name, f in futs.items():
+        try: raw[name] = f.result()
         except Exception as e: problems.append(f"{name} scraper failed"); print(name, "failed:", e); raw[name] = []
 
     feed = sb_all("feed")
