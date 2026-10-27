@@ -1,0 +1,15 @@
+
+/* sign-in */
+#gate{position:fixed;inset:0;z-index:2000;background:var(--bg);display:grid;place-items:center;padding:24px 16px}
+#gate[hidden]{display:none}
+.gate-card{width:100%;max-width:380px;display:grid;gap:14px;justify-items:start}
+.gate-card h1{font-family:var(--display);font-weight:800;font-stretch:85%;font-size:34px;line-height:1;margin:0}
+.gate-card p{margin:0;color:var(--ink-2)}
+.gate-card form{display:grid;gap:10px;width:100%}
+.gate-card input{font:inherit;font-size:18px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%}
+.gate-card input:focus{outline:2px solid var(--accent-line);outline-offset:1px}
+.gate-card .btn{justify-content:center;width:100%;padding:14px}
+.gate-card #gStep1,.gate-card #gStep2{display:grid;gap:12px;width:100%}
+.gate-card [hidden]{display:none!important}
+.linkbtn{border:0;background:none;color:var(--accent-ink);font:inherit;font-weight:700;cursor:pointer;padding:4px 0}
+.gate-msg{min-height:1.4em;font-size:15px}
