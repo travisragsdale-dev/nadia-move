@@ -4,8 +4,16 @@
 (() => {
 "use strict";
 const CFG = window.MOVE_CONFIG || {};
+// Read the sign-in link's tokens right away, before the app's page router replaces the #hash.
+let hashTokens = null, hashError = null;
+if (/access_token=|error_description=/.test(location.hash)) {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get("access_token") && p.get("refresh_token")) hashTokens = { access_token: p.get("access_token"), refresh_token: p.get("refresh_token") };
+  else hashError = p.get("error_description") || "sign-in failed";
+  history.replaceState(null, "", location.pathname + location.search + "#home");
+}
 const sb = window.supabase.createClient(CFG.url, CFG.key, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit" },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: "implicit" },
 });
 window.__sb = sb;
 
@@ -20,10 +28,10 @@ gate.innerHTML = `<div class="gate-card">
   <span class="bullet" aria-hidden="true">M</span>
   <h1>NYC Move</h1>
   <div id="gStep1">
-    <p>Sign in with your email. We'll send you a 6-digit code.</p>
+    <p>Sign in with your email. We'll send you a sign-in link.</p>
     <form id="gEmailForm"><label class="sr" for="gEmail">Email</label>
       <input id="gEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
-      <button class="btn primary" type="submit">Send code</button></form>
+      <button class="btn primary" type="submit">Send link</button></form>
   </div>
   <div id="gStep2" hidden>
     <p id="gSent"></p>
@@ -48,7 +56,7 @@ gate.querySelector("#gEmailForm").addEventListener("submit", async (e) => {
   const { error } = await sb.auth.signInWithOtp({ email: pendingEmail, options: { emailRedirectTo: location.origin + location.pathname } });
   if (error) { gmsg(error.status === 429 ? "Too many tries. Wait a minute and try again." : "Couldn't send the code. Check the email and try again."); return; }
   gmsg("");
-  gate.querySelector("#gSent").textContent = `Check ${pendingEmail} for a 6-digit code. You can also just tap the link in that email.`;
+  gate.querySelector("#gSent").textContent = `Check ${pendingEmail} and tap the link in the email. If the email has a 6-digit code instead, enter it here.`;
   gate.querySelector("#gStep1").hidden = true; gate.querySelector("#gStep2").hidden = false;
   gate.querySelector("#gCode").focus();
 });
@@ -80,7 +88,17 @@ async function onSession(session) {
   readyResolve();
 }
 sb.auth.onAuthStateChange((_evt, session) => { setTimeout(() => onSession(session), 0); });
-sb.auth.getSession().then(({ data }) => onSession(data.session));
+(async () => {
+  if (hashTokens) {
+    const { error } = await sb.auth.setSession(hashTokens);
+    if (error) { showGate(true); gmsg("That sign-in link didn't work. Send a new one."); }
+  } else if (hashError) {
+    showGate(true);
+    gmsg(/expired|invalid/i.test(hashError) ? "That link expired or was already used. Send a new one." : "Sign-in didn't work. Send a new link.");
+  }
+  const { data } = await sb.auth.getSession();
+  onSession(data.session);
+})();
 
 /* ---------- db ---------- */
 const cols = new Map(); // coll -> { rows: Map(id -> data), loaded: Promise, subs: Set(fn) }
