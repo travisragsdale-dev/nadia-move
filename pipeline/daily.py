@@ -142,9 +142,16 @@ def km(a, b, c, d):
     t = math.pi/180; x = math.sin((c-a)*t/2)**2 + math.cos(a*t)*math.cos(c*t)*math.sin((d-b)*t/2)**2
     return 12742*math.asin(math.sqrt(x))
 
-BOROS = [(b["name"], shape({"type": b["type"], "coordinates": b["coords"]})) for b in json.loads(open(os.path.join(HERE, "..", "data", "geo.js")).read().split("=", 1)[1].rstrip().rstrip(";"))["boros"]]
+from shapely.validation import make_valid
+BOROS = [(b["name"], make_valid(shape({"type": b["type"], "coordinates": b["coords"]}))) for b in json.loads(open(os.path.join(HERE, "..", "data", "geo.js")).read().split("=", 1)[1].rstrip().rstrip(";"))["boros"]]
 def place(lat, lng):
-    boro = next((n for n, g in BOROS if g.contains(Point(lng, lat))), None)
+    pt = Point(lng, lat)
+    boro = None
+    for n, g in BOROS:
+        try:
+            if g.contains(pt): boro = n; break
+        except Exception:
+            if g.buffer(0).contains(pt): boro = n; break
     if not boro or boro == "Staten Island": return None, None
     best = min(HOODS.items(), key=lambda kv: km(lat, lng, *kv[1]))
     return boro, (best[0] if km(lat, lng, *best[1]) < 1.6 else boro)
