@@ -426,7 +426,7 @@ async function openListing(id) {
       <small class="muted">Rough estimates from distance. Check exact trips in a maps app.</small></div>` : ""}
     ${S.readinessHTML ? S.readinessHTML(l) : ""}
     ${l.note ? `<div><div class="section-label">Note</div><p style="margin:6px 0 0">${esc(l.note)}</p></div>` : ""}
-    <div class="btnrow">${l.url ? `<a class="btn dark" href="${esc(l.url)}" target="_blank" rel="noopener">Open listing ↗</a>` : ""}
+    <div class="btnrow">${l.url ? `<a class="btn dark" href="${esc(l.url)}" target="_blank" rel="noopener">Open listing ↗</a>` : ""}${l.lat != null ? `<a class="btn" href="https://maps.apple.com/?ll=${l.lat},${l.lng}&q=${encodeURIComponent(l.addr || "Listing")}&z=19" target="_blank" rel="noopener">Apple Maps ↗</a><a class="btn" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${l.lat},${l.lng}" target="_blank" rel="noopener">Street View ↗</a>` : ""}
       ${l.url ? `<button class="btn" id="copyLink">Copy link</button>` : ""}</div>
     <div><div class="section-label" style="margin-bottom:8px">Status</div>
       <div class="statusbar" id="statusBar">${STATUS.map((s) => `<button data-s="${s}" aria-pressed="${pick.status === s}">${STATUS_LABEL[s]}</button>`).join("")}</div></div>
