@@ -1,0 +1,33 @@
+name: Unpack upload
+
+# Upload a .zip of site files through GitHub's web page, then run this (Actions → Unpack upload → Run workflow).
+on:
+  push:
+    paths: ["*.zip"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip into the repo
+        run: |
+          set -e
+          shopt -s nullglob
+          zips=(*.zip)
+          if [ ${#zips[@]} -eq 0 ]; then echo "No zip to unpack"; exit 0; fi
+          for z in "${zips[@]}"; do unzip -o "$z" -x '.github/*'; git rm -q "$z"; done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Unpack uploaded files"
+          git push
+      - name: Publish the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main || echo "Run 'Publish site' by hand"
