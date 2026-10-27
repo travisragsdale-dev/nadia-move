@@ -9,7 +9,7 @@ Environment (GitHub secrets): APIFY_TOKEN, SUPABASE_URL, SUPABASE_SECRET_KEY,
 SMTP_USER + SMTP_PASS (optional, Gmail app password), SITE_URL.
 Run with --dry-run to skip all writes and the email.
 """
-import datetime, json, math, os, random, re, smtplib, sys, time, urllib.parse, urllib.request
+import datetime, json, math, os, random, re, smtplib, sys, time, urllib.error, urllib.parse, urllib.request
 from email.message import EmailMessage
 from shapely.geometry import shape, Point
 
@@ -20,7 +20,11 @@ def ENV(k, d=None):
     v = os.environ.get(k)
     return v.strip() if isinstance(v, str) and v.strip() else d  # ignore stray spaces/newlines from pasted secrets
 SB_URL = (ENV("SUPABASE_URL") or "").rstrip("/")
-SB_KEY = ENV("SUPABASE_SECRET_KEY") or ""
+def _clean_key(v):
+    """Pull just the key out of whatever was pasted (extra words, spaces or line breaks)."""
+    m = re.search(r"sb_(?:secret|publishable)_[A-Za-z0-9_\-]+|eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+", v or "")
+    return m.group(0) if m else re.sub(r"\s+", "", v or "")
+SB_KEY = _clean_key(os.environ.get("SUPABASE_SECRET_KEY"))
 SITE = ENV("SITE_URL") or ""
 from zoneinfo import ZoneInfo
 NY = ZoneInfo("America/New_York")
@@ -81,6 +85,23 @@ def sb(method, path, body=None, prefer=None):
     if not SB_KEY.startswith("sb_"): h["Authorization"] = "Bearer " + SB_KEY  # legacy service_role JWT
     if prefer: h["Prefer"] = prefer
     return http(method, f"{SB_URL}/rest/v1/{path}", body, h)
+
+def key_kind():
+    if SB_KEY.startswith("sb_secret_"): return "secret key"
+    if SB_KEY.startswith("sb_publishable_"): return "PUBLISHABLE key (wrong one: needs a secret key)"
+    if SB_KEY.startswith("eyJ"): return "legacy JWT key"
+    return "UNRECOGNISED value" if SB_KEY else "MISSING"
+
+def check_supabase():
+    """Fail fast, before the long scrape, if the database can't be reached."""
+    print(f"Supabase key: {key_kind()}, {len(SB_KEY)} characters")
+    try:
+        sb("GET", "docs?select=id&limit=1")
+        print("Supabase: connected")
+    except urllib.error.HTTPError as e:
+        print(f"Supabase: HTTP {e.code} {e.read()[:300]!r}"); sys.exit(1)
+    except Exception as e:
+        print(f"Supabase: {type(e).__name__}: {e}"); sys.exit(1)
 
 def sb_all(coll):
     out = {}
@@ -232,6 +253,7 @@ def send_email(to, subject, lines, picks):
 
 # ---------------- main ----------------
 def main():
+    check_supabase()
     now = int(time.time() * 1000)
     problems = []
     raw = {}
