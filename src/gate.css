@@ -20,8 +20,9 @@
 
 /* listing sheet: close button pinned to the top-right corner while scrolling */
 .sheet .sheet-x{position:sticky;top:4px;z-index:3;justify-self:end;margin-left:auto;margin-bottom:-44px;background:var(--surface);box-shadow:var(--shadow);width:40px;height:40px}
-/* map: clearer coastline, water that reads as water */
-:root:not([data-theme="dark"]){--water:#b7d3d6;--land-edge:#7f9f8c}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--water:#0b1d24;--land-edge:#4a6656}}
-:root[data-theme="dark"]{--water:#0b1d24;--land-edge:#4a6656}
 .sheet-x + .sheethead .headbtns{margin-right:48px}
+
+/* map: soft grey water, plain land, no coastline stroke */
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--water:#e4e7e8}}
+:root[data-theme="light"]{--water:#e4e7e8}
+.chipbtn.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}

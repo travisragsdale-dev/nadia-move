@@ -16,7 +16,7 @@ const S = window.__S = {
   listings: new Map(), picks: new Map(), guides: new Map(),
   settings: {},
   filters: Object.assign({ max: 2800, beds: "any", kind: "whole", dog: false, cat: false, noFee: false, aff: false, hidePassed: true }, store.get("filters", {})),
-  view: "search", mode: store.get("mode", "map"), sort: store.get("sort", "new"),
+  view: "search", mode: store.get("mode", "map"), subway: store.get("subway", false), sort: store.get("sort", "new"),
   selected: null, picking: null, profiles: {},
 };
 /* Commute anchors (approximate coordinates from the street addresses) */
@@ -154,7 +154,7 @@ function extraTags(l) {
 S.ui = { bullets, bedsLabel, petTags, extraTags, esc, money };
 
 /* ---------- map ---------- */
-let map, pinLayer, stationLayer, hoodLayer, hoodLayer2, anchorLayer;
+let map, pinLayer, stationLayer, lineLayer, hoodLayer, hoodLayer2, anchorLayer;
 function initMap() {
   map = L.map("map", { zoomControl: false, preferCanvas: true, minZoom: 10, maxZoom: 17, maxBounds: [[40.45, -74.35], [40.98, -73.6]] })
     .setView([40.705, -73.945], 12);
@@ -162,13 +162,14 @@ function initMap() {
   map.attributionControl.addAttribution("Subway: MTA GTFS · Boroughs: NYC DCP · Streets: © OpenStreetMap © CARTO");
   const isDark = () => { const t = document.documentElement.dataset.theme; return t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches); };
   let tiles = null;
-  const setTiles = () => { tiles?.remove(); tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? "dark_nolabels" : "voyager_nolabels"}/{z}/{x}/{y}{r}.png`, { subdomains: "abcd", maxZoom: 19 }).addTo(map); };
+  const setTiles = () => { tiles?.remove(); tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? "dark_nolabels" : "light_nolabels"}/{z}/{x}/{y}{r}.png`, { subdomains: "abcd", maxZoom: 19 }).addTo(map); };
   setTiles();
   const css = getComputedStyle(document.documentElement);
-  const landStyle = () => ({ color: css.getPropertyValue("--land-edge").trim(), weight: 1.6, fillColor: css.getPropertyValue("--land").trim(), fillOpacity: map.getZoom() >= 13 ? 0.35 : 0.6 });
+  const landStyle = () => ({ stroke: false, fillColor: css.getPropertyValue("--land").trim(), fillOpacity: map.getZoom() >= 13 ? 0.45 : 0.8 });
   const boroFeatures = GEO.boros.map((b) => ({ type: "Feature", properties: { name: b.name }, geometry: { type: b.type, coordinates: b.coords } }));
   const boroLayer = L.geoJSON({ type: "FeatureCollection", features: boroFeatures }, { style: landStyle, interactive: false }).addTo(map);
-  GEO.lines.forEach((ln) => L.polyline(ln.p.map(([x, y]) => [y, x]), { color: ln.c, weight: 2, opacity: 0.4, interactive: false }).addTo(map));
+  lineLayer = L.layerGroup();
+  GEO.lines.forEach((ln) => L.polyline(ln.p.map(([x, y]) => [y, x]), { color: ln.c, weight: 2, opacity: 0.45, interactive: false }).addTo(lineLayer));
   stationLayer = L.layerGroup();
   GEO.stations.forEach((s) => {
     L.circleMarker([s.y, s.x], { radius: 3, color: "#fff", weight: 1, fillColor: "#333", fillOpacity: 1 })
@@ -179,7 +180,11 @@ function initMap() {
   Object.entries(HOODS).forEach(([n, [la, lo]]) => L.marker([la, lo], { interactive: false, keyboard: false, icon: L.divIcon({ className: "hood", html: `<span>${esc(n)}</span>`, iconSize: [0, 0] }) }).addTo(MAJOR.has(n) ? hoodLayer : hoodLayer2));
   anchorLayer = L.layerGroup().addTo(map);
   pinLayer = L.layerGroup().addTo(map);
-  const zoomLayers = () => { const z = map.getZoom(); (z >= 13 ? stationLayer.addTo(map) : stationLayer.remove()); (z >= 12 ? hoodLayer.addTo(map) : hoodLayer.remove()); (z >= 14 ? hoodLayer2.addTo(map) : hoodLayer2.remove()); };
+  const zoomLayers = () => { const z = map.getZoom(); (S.subway ? lineLayer.addTo(map) : lineLayer.remove()); (S.subway && z >= 13 ? stationLayer.addTo(map) : stationLayer.remove()); (z >= 12 ? hoodLayer.addTo(map) : hoodLayer.remove()); (z >= 14 ? hoodLayer2.addTo(map) : hoodLayer2.remove()); };
+  const subBtn = $("#subwayBtn");
+  const syncSub = () => { subBtn.setAttribute("aria-pressed", String(!!S.subway)); subBtn.classList.toggle("on", !!S.subway); };
+  subBtn.onclick = () => { S.subway = !S.subway; store.set("subway", S.subway); syncSub(); zoomLayers(); };
+  syncSub();
   let wasBig = map.getZoom() >= 14;
   map.on("zoomend", () => { zoomLayers(); boroLayer.setStyle(landStyle()); renderAnchors(); const big = map.getZoom() >= 14; if (big !== wasBig) { wasBig = big; renderPins(); } }); zoomLayers();
   matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { boroLayer.setStyle(landStyle()); setTiles(); });
