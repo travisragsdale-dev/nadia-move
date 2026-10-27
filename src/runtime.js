@@ -28,10 +28,10 @@ gate.innerHTML = `<div class="gate-card">
   <span class="bullet" aria-hidden="true">M</span>
   <h1>NYC Move</h1>
   <div id="gStep1">
-    <p>Sign in with your email. We'll send you a sign-in link.</p>
+    <p>Sign in with your email. We'll send you a code.</p>
     <form id="gEmailForm"><label class="sr" for="gEmail">Email</label>
       <input id="gEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
-      <button class="btn primary" type="submit">Send link</button></form>
+      <button class="btn primary" type="submit">Send code</button></form>
   </div>
   <div id="gStep2" hidden>
     <p id="gSent"></p>
@@ -56,7 +56,7 @@ gate.querySelector("#gEmailForm").addEventListener("submit", async (e) => {
   const { error } = await sb.auth.signInWithOtp({ email: pendingEmail, options: { emailRedirectTo: location.origin + location.pathname } });
   if (error) { gmsg(error.status === 429 ? "Too many tries. Wait a minute and try again." : "Couldn't send the code. Check the email and try again."); return; }
   gmsg("");
-  gate.querySelector("#gSent").textContent = `Check ${pendingEmail} and tap the link in the email. If the email has a 6-digit code instead, enter it here.`;
+  gate.querySelector("#gSent").textContent = `We emailed a code to ${pendingEmail}. Enter it here.`;
   gate.querySelector("#gStep1").hidden = true; gate.querySelector("#gStep2").hidden = false;
   gate.querySelector("#gCode").focus();
 });
