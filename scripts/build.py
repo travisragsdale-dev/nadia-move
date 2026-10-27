@@ -44,6 +44,9 @@ out = f"""<!doctype html>
 {rd("src/ready.js")}
 </script>
 <script>
+{rd("src/details.js")}
+</script>
+<script>
 {rd("src/home.js")}
 </script>
 </body>

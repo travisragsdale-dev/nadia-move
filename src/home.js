@@ -116,7 +116,7 @@ function renderHome() {
       <h2>${esc(next.what)}</h2>
       ${next.how ? `<p>${esc(next.how)}</p>` : ""}
       <div class="btnrow">
-        ${next.guide ? `<button class="btn primary" data-guide="${next.guide}">Start</button>` : `<button class="btn primary" data-done="${next.id}">Done</button>`}
+        ${next.guide ? `<button class="btn primary" data-guide="${next.guide}">Start</button>` : hasDetails(next) ? `<button class="btn primary" data-detail="${next.id}">How to do it</button><button class="btn ghost" data-done="${next.id}">Mark done</button>` : `<button class="btn primary" data-done="${next.id}">Done</button>`}
       </div>
     </div>` : `<div class="h-next"><span class="h-lbl">All done</span><h2>Welcome to New York.</h2></div>`}
     <button class="h-all" id="allSteps"><span>View all steps</span><small class="tnum">${doneN} of ${STEPS.length} done</small><i aria-hidden="true">→</i></button>
@@ -134,14 +134,25 @@ function renderHome() {
   }));
   el.querySelectorAll("[data-guide]").forEach((b) => (b.onclick = () => S.openRunner(b.dataset.guide)));
   el.querySelectorAll("[data-done]").forEach((b) => (b.onclick = () => toggleStep(b.dataset.done, true)));
+  el.querySelectorAll("[data-detail]").forEach((b) => (b.onclick = () => openStepDetails(b.dataset.detail)));
   $("#allSteps", el)?.addEventListener("click", () => S.setView("steps"));
 }
 
+function openStepDetails(id) {
+  const st = STEPS.find((x) => x.id === id); if (!st) return;
+  const ph = PHASES.find((p) => p.id === st.phase);
+  S.openDetails({ ...st, phaseName: ph?.name || "", dueLabel: "by " + fmt(st.due), auto: !!st.auto?.() }, {
+    done: isDone(st),
+    onToggle: (on) => { toggleStep(st.id, on, true); renderHome(); renderSteps(); },
+  });
+}
+S.openStepDetails = openStepDetails;
+const hasDetails = (st) => !!S.DETAILS?.[st.id];
 function stepRow(st) {
   const done = isDone(st), auto = !!st.auto?.(), n = daysTo(st.due);
   const late = !done && n < 0;
   return `<label class="srow${done ? " done" : ""}"><input type="checkbox" data-step="${st.id}" ${done ? "checked" : ""} ${auto ? "disabled" : ""}>
-    <span>${esc(st.what)}${st.how && !done ? `<em>${esc(st.how)}</em>` : ""}</span>${st.guide && !done ? `<button class="rd-fix" data-sguide="${st.guide}">Start</button>` : `<small class="${late ? "late" : ""}">${done ? "" : late ? "Late" : "by " + fmt(st.due)}</small>`}</label>`;
+    <span>${esc(st.what)}${st.how && !done ? `<em>${esc(st.how)}</em>` : ""}${!st.guide && !done ? `<small class="${late ? "late" : ""}">${late ? "Late" : "by " + fmt(st.due)}</small>` : ""}</span>${st.guide && !done ? `<button class="rd-fix" data-sguide="${st.guide}">Start</button>` : hasDetails(st) ? `<button class="rd-fix" data-sdetail="${st.id}">Details</button>` : `<small></small>`}</label>`;
 }
 function renderSteps() {
   const el = $("#stepsEl"); if (!el || S.view !== "steps") return;
@@ -156,6 +167,7 @@ function renderSteps() {
   $("#stepsBack", el).onclick = () => S.setView("home");
   el.querySelectorAll("[data-step]").forEach((c) => (c.onchange = () => { toggleStep(c.dataset.step, c.checked, true); renderSteps(); }));
   el.querySelectorAll("[data-sguide]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); S.openRunner(b.dataset.sguide); }));
+  el.querySelectorAll("[data-sdetail]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openStepDetails(b.dataset.sdetail); }));
 }
 S.renderSteps = renderSteps;
 function toggleStep(id, on, quiet) {

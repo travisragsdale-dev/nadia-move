@@ -23,7 +23,20 @@
 .sheet-x + .sheethead .headbtns{margin-right:48px}
 
 /* map: soft grey water, plain land, no coastline stroke */
-@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--water:#eef0f1}:root:not([data-theme="dark"]) .leaflet-tile-pane{filter:contrast(.7) brightness(1.08)}}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--water:#eef0f1}:root:not([data-theme="dark"]) .leaflet-tile-pane{filter:contrast(.85) brightness(1.04)}}
 :root[data-theme="light"]{--water:#eef0f1}
-:root[data-theme="light"] .leaflet-tile-pane{filter:contrast(.7) brightness(1.08)}
+:root[data-theme="light"] .leaflet-tile-pane{filter:contrast(.85) brightness(1.04)}
 .chipbtn.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+/* step details sheet */
+.dt-head{display:grid;gap:6px;padding-right:48px}
+.dt-head h2{font-size:26px;font-weight:800;line-height:1.1}
+.dt-head p{margin:0;color:var(--ink-2)}
+.dt-steps{list-style:none;counter-reset:dt;margin:0;padding:0;display:grid;gap:14px}
+.dt-steps li{counter-increment:dt;display:grid;grid-template-columns:30px 1fr;column-gap:12px;row-gap:2px}
+.dt-steps li::before{content:counter(dt);grid-row:span 2;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-weight:800;display:grid;place-items:center;font-size:14px}
+.dt-steps b{font-size:16px}
+.dt-steps span{color:var(--ink-2);font-size:15px;line-height:1.45}
+.dt-tips ul{margin:6px 0 0;padding-left:18px;display:grid;gap:6px;color:var(--ink-2);font-size:14.5px}
+.srow span small{display:block;font-size:13px;color:var(--ink-2);margin-top:2px}
+.srow span small.late{color:var(--warn);font-weight:700}

@@ -159,13 +159,14 @@ function initMap() {
   map = L.map("map", { zoomControl: false, preferCanvas: true, minZoom: 10, maxZoom: 17, maxBounds: [[40.45, -74.35], [40.98, -73.6]] })
     .setView([40.705, -73.945], 12);
   map.attributionControl.setPrefix(false);
-  map.attributionControl.addAttribution("Subway: MTA GTFS · Boroughs: NYC DCP · Streets: © OpenStreetMap © CARTO");
+  map.attributionControl.addAttribution("Subway: MTA GTFS · Boroughs: NYC DCP · Base map: Esri, HERE, Garmin, © OpenStreetMap");
   const isDark = () => { const t = document.documentElement.dataset.theme; return t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches); };
   let tiles = null;
-  const setTiles = () => { tiles?.remove(); tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? "dark_nolabels" : "light_nolabels"}/{z}/{x}/{y}{r}.png`, { subdomains: "abcd", maxZoom: 19 }).addTo(map); };
+  // Esri grey canvas base maps: no API key needed, no labels, soft grey water.
+  const setTiles = () => { tiles?.remove(); tiles = L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${isDark() ? "World_Dark_Gray_Base" : "World_Light_Gray_Base"}/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 17, maxNativeZoom: 16 }).addTo(map); };
   setTiles();
   const css = getComputedStyle(document.documentElement);
-  const landStyle = () => ({ stroke: false, fillColor: css.getPropertyValue("--land").trim(), fillOpacity: map.getZoom() >= 13 ? 0.45 : 0.8 });
+  const landStyle = () => ({ stroke: false, fillColor: css.getPropertyValue("--land").trim(), fillOpacity: 0.2 });  // the base map already draws land and water; this is just a light tint
   const boroFeatures = GEO.boros.map((b) => ({ type: "Feature", properties: { name: b.name }, geometry: { type: b.type, coordinates: b.coords } }));
   const boroLayer = L.geoJSON({ type: "FeatureCollection", features: boroFeatures }, { style: landStyle, interactive: false }).addTo(map);
   lineLayer = L.layerGroup();
@@ -342,6 +343,7 @@ function closeSheet() {
 S.openSheet = openSheet; S.closeSheet = closeSheet;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if (S.picking) endPick(null); else closeSheet(); } });
 const X = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`;
+S.ui.X = X;
 S.X = X;
 
 /* ---------- picks (status, ratings, notes) ---------- */
