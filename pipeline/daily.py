@@ -165,6 +165,12 @@ def pets_from_text(t):
     m = re.search(r"(?:dogs?|pets?)[^.]{0,40}?(?:under|up to|max(?:imum)?|less than)\s*(\d{2,3})\s*(?:lb|lbs|pounds)", t)
     return dogs, cats, (int(m.group(1)) if m else None)
 
+SHARED_RX = re.compile(r"\b(rooms? ((for|4) rent|available|in (a|an|my|our|shared))|private (bed)?room|shared (apartment|apt|house|home|unit|kitchen|bath(room)?)|room ?mates? (wanted|needed)|looking for (a )?room ?mate|housemates?|furnished room|bedroom available in|share (a|an|my|our) (apt|apartment|house|home)|co-?living)\b", re.I)
+NOT_SHARED_RX = re.compile(r"(great|perfect|ideal|good) for room ?mates|room ?mates? (welcome|friendly|ok)", re.I)
+def is_shared(t):
+    """A room in someone's place rather than a whole apartment."""
+    return bool(t) and bool(SHARED_RX.search(t)) and not NOT_SHARED_RX.search(SHARED_RX.sub("", t))
+
 def flags(t):
     t = (t or "").lower()
     return {"noFee": bool(re.search(r"\bno[- ]fee\b|no broker fee", t)),
@@ -209,6 +215,7 @@ def from_se(r):
         "addr": addr, "lat": round(lat, 6), "lng": round(lng, 6), "dogs": dogs, "cats": cats, "maxDog": maxDog,
         "noFee": f["noFee"], "aff": f["aff"], "stab": f["stab"],
         "note": ("%s months free · net $%s" % (r.get("monthsFree"), r.get("netEffectivePrice"))) if r.get("monthsFree") else "",
+        "shared": is_shared(desc),
         "listedAt": iso_ms(r.get("onMarketAt") or r.get("createdAt")), "avail": str(r.get("availableAt"))[:10] if r.get("availableAt") else None,
         "photo": first_image(r.get("images"))}
 
@@ -226,6 +233,7 @@ def from_cl(r):
         "dogs": True if g(r, "attributes.pets_dog") else None, "cats": True if g(r, "attributes.pets_cat") else None, "maxDog": maxDog,
         "noFee": f["noFee"] or "no fee" in fee, "aff": f["aff"], "stab": f["stab"],
         "note": " · ".join(x for x in [(r.get("title") or "")[:90], g(r, "attributes.laundry") or ""] if x),
+        "shared": is_shared(body),
         "listedAt": iso_ms(r.get("postedAt")), "avail": (str(g(r, "attributes.movein_date") or "")[:10] or None),
         "photo": first_image(r.get("images"))}
 
@@ -297,6 +305,11 @@ def main():
     se = [v for k, v in feed.items() if k.startswith("se")]
     near = lambda a, b: abs(a["lat"]-b["lat"]) < 0.0008 and abs(a["lng"]-b["lng"]) < 0.001 and a["price"] == b["price"]
     dup = {k for k, v in feed.items() if k.startswith("cl") and k not in keep and any(near(v, w) for w in se)}
+    seen_posts = {}
+    for k in sorted(k for k in feed if k.startswith("cl")):  # same Craigslist ad posted several times: keep one
+        v = feed[k]; sig = ((v.get("title") or "").strip().lower(), v.get("price"), v.get("beds"))
+        if sig[0] and sig in seen_posts and k not in keep: dup.add(k)
+        else: seen_posts.setdefault(sig, k)
     cutoff = now - MAX_AGE_DAYS * 86400000
     old = {k for k, v in feed.items() if k not in keep and max(v.get("listedAt") or 0, v.get("seenAt") or 0) < cutoff}
     gone = dup | old

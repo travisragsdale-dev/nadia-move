@@ -15,7 +15,7 @@ const S = window.__S = {
   me: { id: null }, canWrite: true, live: false,
   listings: new Map(), picks: new Map(), guides: new Map(),
   settings: {},
-  filters: Object.assign({ max: 2800, beds: "any", dog: false, cat: false, noFee: false, aff: false, hidePassed: true }, store.get("filters", {})),
+  filters: Object.assign({ max: 2800, beds: "any", kind: "whole", dog: false, cat: false, noFee: false, aff: false, hidePassed: true }, store.get("filters", {})),
   view: "search", mode: store.get("mode", "map"), sort: store.get("sort", "new"),
   selected: null, picking: null, profiles: {},
 };
@@ -94,6 +94,10 @@ const HOODS = {
 S.HOODS = HOODS;
 
 /* ---------- listing normalization + filters ---------- */
+/* Room in a shared place vs. a whole apartment (the daily pull sets d.shared; this is the fallback) */
+const SHARED_RX = /\b(rooms? ((for|4) rent|available|in (a|an|my|our|shared))|private (bed)?room|shared (apartment|apt|house|home|unit|kitchen|bath(room)?)|room ?mates? (wanted|needed)|looking for (a )?room ?mate|housemates?|furnished room|bedroom available in|share (a|an|my|our) (apt|apartment|house|home)|co-?living)\b/i;
+const NOT_SHARED_RX = /(great|perfect|ideal|good) for room ?mates|room ?mates? (welcome|friendly|ok)/i;
+const guessShared = (t) => !!t && SHARED_RX.test(t) && !NOT_SHARED_RX.test(t.replace(SHARED_RX, ""));
 function norm(id, d) {
   return {
     id, src: d.src || "manual", url: d.url || "", title: d.title || "", addr: d.addr || "", hood: d.hood || "",
@@ -101,6 +105,7 @@ function norm(id, d) {
     price: Number(d.price) || null, beds: d.beds ?? null, baths: d.baths ?? null,
     cats: d.cats ?? null, dogs: d.dogs ?? null, maxDog: d.maxDog ?? null, noFee: !!d.noFee,
     aff: !!d.aff, stab: !!d.stab, avail: d.avail || "", photo: d.photo || "", note: d.note || "", addedAt: d.addedAt || 0, addedBy: d.addedBy || null, listedAt: d.listedAt || d.addedAt || 0,
+    shared: typeof d.shared === "boolean" ? d.shared : guessShared(`${d.title || ""} ${d.note || ""}`),
   };
 }
 const DOG_LB = 50; // overridden by settings.dogLb
@@ -116,6 +121,8 @@ function passes(l) {
   if (f.beds === "0" && !(l.beds === 0 || l.beds === "0")) return false;
   if (f.beds === "1" && Number(l.beds) !== 1) return false;
   if (f.beds === "2" && !(Number(l.beds) >= 2)) return false;
+  if (f.kind === "whole" && l.shared) return false;
+  if (f.kind === "room" && !l.shared) return false;
   if (f.dog && l.dogs !== true) return false;
   if (f.dog && l.maxDog && Number(l.maxDog) < (S.cfg().dogLb || DOG_LB)) return false;
   if (f.cat && l.cats !== true) return false;
@@ -138,7 +145,7 @@ function petTags(l) {
   return t.join("");
 }
 function extraTags(l) {
-  let t = "";
+  let t = l.shared ? `<span class="tag warn">Room in shared apt</span>` : `<span class="tag">Whole apartment</span>`;
   if (l.noFee) t += `<span class="tag">No fee</span>`;
   if (l.aff) t += `<span class="tag acc">Income-restricted</span>`;
   if (l.stab) t += `<span class="tag acc">Rent-stabilized</span>`;
@@ -261,7 +268,7 @@ window.addEventListener("hashchange", () => { const h = location.hash.slice(1); 
 /* ---------- search rendering ---------- */
 function filterCount() {
   const f = S.filters; let n = 0;
-  if (f.max < 2800) n++; if (f.beds !== "any") n++; if (f.favs) n++; if (f.dog) n++; if (f.cat) n++; if (f.noFee) n++; if (f.aff) n++;
+  if (f.max < 2800) n++; if (f.beds !== "any") n++; if ((f.kind || "whole") !== "whole") n++; if (f.favs) n++; if (f.dog) n++; if (f.cat) n++; if (f.noFee) n++; if (f.aff) n++;
   return n;
 }
 function renderSearch() {
@@ -280,7 +287,7 @@ function renderMapNote() {
   } else if (vis === 0) {
     note.hidden = false;
     note.innerHTML = `<h3>Nothing matches these filters</h3><p>${total} listing${total === 1 ? "" : "s"} hidden. Try raising the max rent or turning off a filter.</p><div class="btnrow"><button class="btn" id="clearF">Clear filters</button></div>`;
-    $("#clearF").onclick = () => { Object.assign(S.filters, { max: 2800, beds: "any", dog: false, cat: false, noFee: false, aff: false }); store.set("filters", S.filters); renderSearch(); };
+    $("#clearF").onclick = () => { Object.assign(S.filters, { max: 2800, beds: "any", kind: "whole", dog: false, cat: false, noFee: false, aff: false }); store.set("filters", S.filters); renderSearch(); };
   } else note.hidden = true;
 }
 function listingCard(l, extra = "") {
@@ -459,6 +466,8 @@ $("#filterBtn").onclick = () => {
     <div class="field"><span>Max rent</span><div class="range"><input type="range" id="fMax" min="1500" max="3500" step="50" value="${f.max}" aria-label="Max rent"><output id="fMaxO" class="tnum">${money(f.max)}</output></div>
       <small>Goal is $2,000. Solid green pins are $2,000 or less; green-outlined pins are up to $2,400.</small></div>
     <div class="field"><span>Size</span><div class="pills" role="radiogroup">${[["any", "Any"], ["0", "Studio"], ["1", "1 BR"], ["2", "2+ BR"]].map(([v, t]) => `<label><input type="radio" name="fBeds" value="${v}" ${f.beds === v ? "checked" : ""}><span>${t}</span></label>`).join("")}</div></div>
+    <div class="field"><span>Type of place</span><div class="pills" role="radiogroup">${[["whole", "Whole apartment"], ["room", "Room in shared apt"], ["any", "Both"]].map(([v, t]) => `<label><input type="radio" name="fKind" value="${v}" ${(f.kind || "whole") === v ? "checked" : ""}><span>${t}</span></label>`).join("")}</div>
+      <small>Rooms are spotted from the listing text, so a few may slip through. Check the listing to be sure.</small></div>
     <div class="field"><span>Must allow</span><div class="pills">
       <label><input type="checkbox" id="fDog" ${f.dog ? "checked" : ""}><span>Dogs</span></label>
       <label><input type="checkbox" id="fCat" ${f.cat ? "checked" : ""}><span>Cats</span></label></div>
@@ -472,11 +481,12 @@ $("#filterBtn").onclick = () => {
   const apply = () => {
     f.max = Number($("#fMax", sheet).value); $("#fMaxO", sheet).textContent = money(f.max);
     f.beds = sheet.querySelector("input[name=fBeds]:checked")?.value || "any";
+    f.kind = sheet.querySelector("input[name=fKind]:checked")?.value || "whole";
     f.dog = $("#fDog", sheet).checked; f.cat = $("#fCat", sheet).checked; f.noFee = $("#fFee", sheet).checked; f.aff = $("#fAff", sheet).checked; f.hidePassed = $("#fPass", sheet).checked; f.favs = $("#fFav", sheet).checked;
     store.set("filters", f); renderSearch();
   };
   sheet.addEventListener("input", apply); sheet.addEventListener("change", apply);
-  $("#fReset", sheet).onclick = () => { Object.assign(f, { max: 2800, beds: "any", dog: false, cat: false, noFee: false, aff: false, hidePassed: true, favs: false }); store.set("filters", f); renderSearch(); $("#filterBtn").click(); };
+  $("#fReset", sheet).onclick = () => { Object.assign(f, { max: 2800, beds: "any", kind: "whole", dog: false, cat: false, noFee: false, aff: false, hidePassed: true, favs: false }); store.set("filters", f); renderSearch(); $("#filterBtn").click(); };
 };
 
 /* ---------- add listing ---------- */
