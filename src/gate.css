@@ -23,6 +23,7 @@
 .sheet-x + .sheethead .headbtns{margin-right:48px}
 
 /* map: soft grey water, plain land, no coastline stroke */
-@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--water:#e4e7e8}}
-:root[data-theme="light"]{--water:#e4e7e8}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--water:#eef0f1}:root:not([data-theme="dark"]) .leaflet-tile-pane{filter:contrast(.7) brightness(1.08)}}
+:root[data-theme="light"]{--water:#eef0f1}
+:root[data-theme="light"] .leaflet-tile-pane{filter:contrast(.7) brightness(1.08)}
 .chipbtn.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
