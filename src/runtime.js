@@ -246,6 +246,7 @@ const downloads = {
   },
 };
 
-const mods = { db, user, sample, downloads };
+// Claude features (intro letter, "fill the form") stay hidden unless MOVE_CONFIG.ai is true.
+const mods = CFG.ai ? { db, user, sample, downloads } : { db, user, downloads };
 window.claude = { use: async (name) => { await ready; if (!mods[name]) throw err("not_granted"); return mods[name]; } };
 })();

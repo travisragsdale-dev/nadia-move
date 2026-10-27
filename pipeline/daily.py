@@ -6,7 +6,7 @@
 4. Writes a short daily note and emails a summary.
 
 Environment (GitHub secrets): APIFY_TOKEN, SUPABASE_URL, SUPABASE_SECRET_KEY,
-ANTHROPIC_API_KEY (optional), SMTP_USER + SMTP_PASS (optional, Gmail app password), SITE_URL.
+SMTP_USER + SMTP_PASS (optional, Gmail app password), SITE_URL.
 Run with --dry-run to skip all writes and the email.
 """
 import datetime, json, math, os, random, re, smtplib, sys, time, urllib.parse, urllib.request
@@ -32,9 +32,38 @@ CL_INPUT = {"locations": ["newyork"], "category": "apa", "minPrice": 1200, "maxP
 CL_FIELDS = "postingId,url,title,body,price,bedrooms,bathrooms,latitude,longitude,postedAt,attributes,images"
 
 HOODS = {"Ridgewood":[40.7043,-73.9055],"Bushwick":[40.6944,-73.9213],"East Williamsburg":[40.714,-73.9365],"Williamsburg":[40.7081,-73.9571],"Greenpoint":[40.7305,-73.9515],"Bed-Stuy":[40.6872,-73.9418],"Clinton Hill":[40.688,-73.965],"Fort Greene":[40.689,-73.974],"Crown Heights":[40.6694,-73.9422],"Prospect Lefferts Gardens":[40.659,-73.952],"Flatbush":[40.641,-73.959],"Kensington":[40.639,-73.973],"Windsor Terrace":[40.654,-73.979],"Sunset Park":[40.646,-74.01],"Cypress Hills":[40.683,-73.878],"Glendale":[40.702,-73.883],"Middle Village":[40.717,-73.881],"Maspeth":[40.723,-73.912],"Woodhaven":[40.69,-73.856],"Astoria":[40.764,-73.923],"Long Island City":[40.7447,-73.9485],"Sunnyside":[40.743,-73.92],"Woodside":[40.745,-73.903],"Jackson Heights":[40.7557,-73.8831],"Elmhurst":[40.736,-73.878],"Lower East Side":[40.715,-73.9843],"East Village":[40.7265,-73.9815],"Chinatown":[40.7158,-73.997],"Two Bridges":[40.711,-73.991],"Washington Heights":[40.8417,-73.9394],"Inwood":[40.8677,-73.9212],"Harlem":[40.8116,-73.9465],"East Harlem":[40.7957,-73.9389]}
-NOTES = ["You can do this.", "One step at a time.", "You've got this.", "Small steps still move you forward.",
-         "Little by little, it's coming together.", "One thing today is enough.", "Every step counts.",
-         "Keep going. You're closer than you think.", "Take it one day at a time.", "Breathe. There's a plan."]
+NOTES = [
+ "You can do this.",
+ "One step at a time.",
+ "You've got this.",
+ "Small steps still move you forward.",
+ "Little by little, it's coming together.",
+ "One thing today is enough.",
+ "Keep going. You're closer than you think.",
+ "Every step counts.",
+ "You're doing great.",
+ "Slow progress is still progress.",
+ "You've done hard things before.",
+ "Take it one day at a time.",
+ "You're on your way.",
+ "Breathe. There's a plan.",
+ "Proud of you for showing up today.",
+ "New York, here you come.",
+ "You don't have to do it all today.",
+ "Trust the process. It's working.",
+ "Done is better than perfect.",
+ "Your future place is out there.",
+ "One box, one form, one step.",
+ "You're braver than this feels.",
+ "Rest counts too.",
+ "It's okay to go slow.",
+ "Every yes starts with trying.",
+ "You belong in this city.",
+ "Today's step is tomorrow's head start.",
+ "Keep your eyes on February.",
+ "You're building something good.",
+ "Almost home."
+]
 
 # ---------------- http ----------------
 def http(method, url, body=None, headers=None, timeout=120):
@@ -171,23 +200,10 @@ def from_cl(r):
         "photo": first_image(r.get("images"))}
 
 # ---------------- note + email ----------------
-def daily_note(n_new):
-    key = ENV("ANTHROPIC_API_KEY")
-    if key:
-        try:
-            out = http("POST", "https://api.anthropic.com/v1/messages", {
-                "model": ENV("CLAUDE_QUICK_MODEL") or "claude-haiku-4-5", "max_tokens": 60,
-                "messages": [{"role": "user", "content": (
-                    "Write ONE short, warm, encouraging line (under 12 words) for someone moving to New York City and "
-                    "hunting for an apartment. Style: 'You can do this.' / 'One step at a time.' / 'You've got this.' "
-                    f"No emoji, at most one exclamation mark. {'You may mention there are ' + str(n_new) + ' new places today.' if n_new else ''} "
-                    f"Make it different from these: {', '.join(random.sample(NOTES, 4))}. Reply with only the line.")}]},
-                {"x-api-key": key, "anthropic-version": "2023-06-01"})
-            line = "".join(b.get("text", "") for b in out.get("content", [])).strip().strip('"')
-            if 3 < len(line) < 90: return line
-        except Exception as e:
-            print("note: Claude unavailable:", e)
-    return random.choice(NOTES)
+def daily_note(today):
+    """Same note the app shows: 30 lines, one per day, in order."""
+    n = round(datetime.datetime.strptime(today, "%Y-%m-%d").replace(tzinfo=datetime.timezone.utc).timestamp() / 86400)
+    return NOTES[n % len(NOTES)]
 
 def fmt_beds(b):
     if b is None: return ""
@@ -261,7 +277,7 @@ def main():
     print(json.dumps({"new": len(new), "under2000": under, "updated": len(changed), "removed": len(gone), "total": total, "problems": problems}))
 
     today = datetime.datetime.now(NY).strftime("%Y-%m-%d")
-    note = daily_note(len(new))
+    note = daily_note(today)
     sb_put("daily", {"today": {"date": today, "text": note}})
     sb_put("ops", {"pipeline": {"lastRun": now, "new": len(new), "total": total, "problems": problems}})
 

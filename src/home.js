@@ -42,7 +42,7 @@ const STEPS = [
 const isDone = (st) => !!(S.checklist?.done || {})[st.id] || !!st.auto?.();
 const phaseNow = () => PHASES.find((p) => today() <= d(p.to)) || PHASES[PHASES.length - 1];
 
-/* Fallback daily notes; the morning task writes a fresh one to daily/today */
+/* 30 encouraging notes, one per day, in order (same list as the daily email) */
 const NOTES = [
   "You can do this.",
   "One step at a time.",
@@ -60,13 +60,25 @@ const NOTES = [
   "Breathe. There's a plan.",
   "Proud of you for showing up today.",
   "New York, here you come.",
+  "You don't have to do it all today.",
+  "Trust the process. It's working.",
+  "Done is better than perfect.",
+  "Your future place is out there.",
+  "One box, one form, one step.",
+  "You're braver than this feels.",
+  "Rest counts too.",
+  "It's okay to go slow.",
+  "Every yes starts with trying.",
+  "You belong in this city.",
+  "Today's step is tomorrow's head start.",
+  "Keep your eyes on February.",
+  "You're building something good.",
+  "Almost home."
 ];
 function dailyNote() {
   const iso = new Date().toLocaleDateString("en-CA");
-  const d = S.daily;
-  if (d && d.date === iso && d.text) return d.text;
-  const n = Math.floor(Date.now() / DAY);
-  return NOTES.at(n % NOTES.length);
+  const n = Math.round(Date.parse(iso + "T00:00:00Z") / DAY);
+  return NOTES[n % NOTES.length];
 }
 function ring(frac, label) {
   const r = 18, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, frac || 0));

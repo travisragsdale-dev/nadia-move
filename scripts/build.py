@@ -2,7 +2,7 @@
 import os
 R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 rd = lambda p: open(os.path.join(R, p)).read()
-CONFIG = {"url": "https://vvwecchcqgdrxgyznhgl.supabase.co", "key": "sb_publishable_5y51gWnCH4VVpmuPHoUUVw_KeZg9rNn"}
+CONFIG = {"url": "https://vvwecchcqgdrxgyznhgl.supabase.co", "key": "sb_publishable_5y51gWnCH4VVpmuPHoUUVw_KeZg9rNn", "ai": False}
 
 head = rd("src/head.html").replace("<style>{{LEAFLET_CSS}}</style>",
     '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">').rstrip()
