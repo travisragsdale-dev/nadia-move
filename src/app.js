@@ -162,13 +162,13 @@ function initMap() {
   map.attributionControl.addAttribution("Subway: MTA GTFS · Boroughs: NYC DCP · Streets: © OpenStreetMap © CARTO");
   const isDark = () => { const t = document.documentElement.dataset.theme; return t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches); };
   let tiles = null;
-  const setTiles = () => { tiles?.remove(); tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? "dark_nolabels" : "light_nolabels"}/{z}/{x}/{y}{r}.png`, { subdomains: "abcd", maxZoom: 19 }).addTo(map); };
+  const setTiles = () => { tiles?.remove(); tiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${isDark() ? "dark_nolabels" : "voyager_nolabels"}/{z}/{x}/{y}{r}.png`, { subdomains: "abcd", maxZoom: 19 }).addTo(map); };
   setTiles();
   const css = getComputedStyle(document.documentElement);
-  const landStyle = () => ({ color: css.getPropertyValue("--land-edge").trim(), weight: 1, fillColor: css.getPropertyValue("--land").trim(), fillOpacity: map.getZoom() >= 13 ? 0.3 : 0.85 });
+  const landStyle = () => ({ color: css.getPropertyValue("--land-edge").trim(), weight: 1.6, fillColor: css.getPropertyValue("--land").trim(), fillOpacity: map.getZoom() >= 13 ? 0.35 : 0.6 });
   const boroFeatures = GEO.boros.map((b) => ({ type: "Feature", properties: { name: b.name }, geometry: { type: b.type, coordinates: b.coords } }));
   const boroLayer = L.geoJSON({ type: "FeatureCollection", features: boroFeatures }, { style: landStyle, interactive: false }).addTo(map);
-  GEO.lines.forEach((ln) => L.polyline(ln.p.map(([x, y]) => [y, x]), { color: ln.c, weight: 2.4, opacity: 0.85, interactive: false }).addTo(map));
+  GEO.lines.forEach((ln) => L.polyline(ln.p.map(([x, y]) => [y, x]), { color: ln.c, weight: 2, opacity: 0.4, interactive: false }).addTo(map));
   stationLayer = L.layerGroup();
   GEO.stations.forEach((s) => {
     L.circleMarker([s.y, s.x], { radius: 3, color: "#fff", weight: 1, fillColor: "#333", fillOpacity: 1 })
@@ -403,13 +403,14 @@ async function openListing(id) {
   const srcLabel = { streeteasy: "StreetEasy", craigslist: "Craigslist", manual: "Added by hand", hpd: "HPD re-rental" }[l.src] || l.src;
   const favNames = favsOf(id).map((u) => u === S.me.id ? "You" : (ps[u]?.name || "Someone"));
   const sheet = openSheet(`
+    <button class="close sheet-x" data-close aria-label="Close listing">${X}</button>
     ${l.photo ? `<img class="lphoto" src="${esc(l.photo)}" alt="Photo of the listing" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}
     <div class="sheethead"><div>
       <div class="section-label">${esc(srcLabel)}${l.listedAt ? " · " + esc(new Date(l.listedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })) : ""}</div>
       <h2 class="tnum">${l.price ? money(l.price) + "/mo" : "Price unknown"}</h2>
       <div class="meta">${esc([bedsLabel(l.beds), l.baths ? l.baths + " bath" : "", l.hood].filter(Boolean).join(" · "))}</div>
       ${l.addr ? `<div class="muted" style="font-size:14.5px">${esc(l.addr)}</div>` : ""}
-    </div><div class="headbtns">${heartBtn(id, true)}<button class="close" data-close aria-label="Close">${X}</button></div></div>
+    </div><div class="headbtns">${heartBtn(id, true)}</div></div>
     ${favNames.length ? `<div class="favby">♥ Favorited by ${esc(favNames.join(" and "))}</div>` : ""}
     <div class="meta">${petTags(l)}${extraTags(l)}</div>
     ${c ? `<div class="commute"><div class="section-label">Getting around</div>
