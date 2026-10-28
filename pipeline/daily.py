@@ -72,13 +72,30 @@ NOTES = [
 ]
 
 # ---------------- http ----------------
-def http(method, url, body=None, headers=None, timeout=120):
+def _http_once(method, url, body=None, headers=None, timeout=120):
     data = json.dumps(body).encode() if body is not None else None
     h = {"Content-Type": "application/json", **(headers or {})}
     req = urllib.request.Request(url, data=data, method=method, headers=h)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read()
         return json.loads(raw) if raw else None
+
+def http(method, url, body=None, headers=None, timeout=120):
+    """Reads (GET) are retried on dropped connections or server hiccups; writes run once."""
+    import http.client
+    tries = 4 if method == "GET" else 1
+    for i in range(tries):
+        try:
+            return _http_once(method, url, body, headers, timeout)
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or i == tries - 1: raise
+            err = e
+        except (http.client.IncompleteRead, urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError) as e:
+            if i == tries - 1: raise
+            err = e
+        wait = (5, 15, 30)[i]
+        print(f"retrying in {wait}s after: {type(err).__name__}")
+        time.sleep(wait)
 
 def sb(method, path, body=None, prefer=None):
     h = {"apikey": SB_KEY}
